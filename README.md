@@ -14,10 +14,10 @@ Broadly, the data processing pipeline steps are as follows:
 # Unique contents
 
 * The data processing pipeline is labeled numerically in order of operation.
-* See [metadata] for information about the follicles.
-* See [oocyte_datasets.py] for global follicle data and project settings.
-* See [sphharmodel.py] for details of the implementation of the spherical harmonic model and related integration functions.
-* See [6_segment_follicles.py] for the surface fitting procedure using PyTorch after extraction and preprocessing of the sub volume time series.
+* See [metadata](metadata) for information about the follicles.
+* See [oocyte_datasets.py](oocyte_datasets.py) for global follicle data and project settings.
+* See [sphharmodel.py](sphharmodel.py) for details of the implementation of the spherical harmonic model and related integration functions.
+* See [6_segment_follicles.py](6_segment_follicles.py) for the surface fitting procedure using PyTorch after extraction and preprocessing of the sub volume time series.
 
 # References
 
