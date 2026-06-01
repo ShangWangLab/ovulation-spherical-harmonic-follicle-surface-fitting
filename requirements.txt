@@ -1,0 +1,10 @@
+torch >= 2.7.0
+scipy >= 1.17.0
+scikit-image >= 0.25.2
+pynrrd >= 1.0.0
+pandas >= 3.0.0
+numpy >= 1.26.4
+matplotlib >= 3.10.3
+imaris-ims-file-reader >= 0.1.8
+h5py >= 3.11.0
+antspyx >= 0.6.2
