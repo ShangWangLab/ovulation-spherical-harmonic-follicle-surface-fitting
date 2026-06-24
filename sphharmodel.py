@@ -301,10 +301,6 @@ class CircularPatch(SphCoords):
         # Approximate; this model is not exactly a spherical cap.
         return 2 * np.pi * (1 - np.cos(self.Rho))
 
-    def surface_area(self):
-        # Approximate; this model is not exactly a spherical cap.
-        return self.Rho**2 * self.solid_angle()
-
     def mean_curvature(self, model, scale):
         # This has a bug in how it weights the surface: the surface area
         # is actually distorted by sin(theta). This makes the average weight
@@ -326,7 +322,6 @@ class CircularPatch(SphCoords):
         R = model.radius(self)
         
         if const_radius:
-            #R = model.mean_radius()
             # Use the mean radius at the boundary instead of the whole
             # follicle.
             R = R[(self.n_rho - 1)*self.n_psi:self.n_rho*self.n_psi].mean()
@@ -579,7 +574,7 @@ if __name__ == "__main__":
     dev = torch.device("cpu")
     coords = UVSphere(dev, 3, 6, True)
     model = SphericalSurface([1, 2, 3], 30)
-##    coords.make_ply("test_sphere.ply", model, scale=0.1, h_range=0.5)
+    #coords.make_ply("test_sphere.ply", model, scale=0.1, h_range=0.5)
 
     c_theta = 30 * torch.pi/180
     c_phi = 60 * torch.pi/180
