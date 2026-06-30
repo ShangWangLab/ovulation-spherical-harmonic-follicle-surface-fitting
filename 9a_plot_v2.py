@@ -1,77 +1,7 @@
-import csv
-import math
-
 import numpy as np
 from matplotlib import rcParams, pyplot as plt
 
-from oocyte_datasets import *
-
-
-class AnalysisFollicle:
-    def __init__(self, line):
-        (ordinal, mouse_num, fol_num, scan_id, oocyte_id, name,
-         delta_t, t_cross, t_open, t_release0, t_release1,
-         t_deflate, t_v94, t_v92) = line[:15]
-        self.ordinal = int(ordinal)  # Kohei's preferred figure ordering
-        self.mouse_num = int(mouse_num)
-        self.fol_num = int(fol_num) if fol_num else 0
-        self.paper_label = "#" + mouse_num
-        if fol_num:
-            self.paper_label += "-" + fol_num
-        self.label = name + "_" + oocyte_id
-        self.delta_t = float(delta_t)
-        self.nt = int(t_cross) + 1
-        self.t_open = int(t_open) if t_open else 0
-        self.t_release0 = int(t_release0)
-        self.t_release1 = int(t_release1)
-        self.has_open = bool(t_open) # before_deflate.upper() == "TRUE"
-        self.t_deflate = int(t_deflate) + 1
-        self.t_v94 = int(t_v94)
-        self.t_v92 = int(t_v92)  # Time at which 92% of original volume is reached
-        self.volumes = None
-        self.pvr = None
-        
-        self.t = self.delta_t * (np.arange(self.nt) - self.t_open)
-
-    def set_volumes(self, volumes):
-        self.volumes = np.array(volumes)
-        assert self.volumes.shape[0] == self.nt
-
-    def set_patch_volume_ratios(self, pvr):
-        self.pvr = np.array(pvr)
-        pvr_pre_leak = self.pvr[:self.t_deflate]
-        self.mean_volume = self.volumes[:self.t_deflate].mean()
-        self.mean_pvr = pvr_pre_leak.mean()
-        self.std_pvr = pvr_pre_leak.std()
-        self.n_pvr = pvr_pre_leak.size
-        self.se_pvr = self.std_pvr / np.sqrt(self.n_pvr)
-
-    def pvr0(self):
-        # Valid for 8 of 9 follicles.
-        assert self.has_open
-        # All time before opening.
-        return np.array(self.pvr[:self.t_open])
-
-    def pvr1(self):
-        # Valid for all follicles.
-        # 40 to 20 seconds before release.
-        t0 = max(self.t_release0 - round(50 / self.delta_t), 0)
-        t1 = self.t_release0 - math.floor(30 / self.delta_t)
-        return np.array(self.pvr[t0:t1])
-
-    def pvr0_x(self):
-        # Valid for 7 of 9.
-        assert self.has_open
-        # 0-50 seconds before leaking begins
-        t0 = self.t_deflate - math.ceil(50 / self.delta_t)
-        return np.array(self.pvr[t0:self.t_deflate])
-
-    def pvr1_x(self):
-        # Valid for all 9.
-        # 0-14 seconds before the volume shrinks to 92% of original
-        t0 = self.t_v94
-        t1 = self.t_v92 + 1
-        return np.array(self.pvr[t0:t1])
+from analysis_dataset import *
 
 
 rcParams["font.family"] = ["Arial"]
@@ -80,51 +10,20 @@ rcParams["figure.figsize"] = (12, 6.75)
 rcParams["legend.loc"] = "lower center"
 DPI = 300
 
-anafols = []
-with open("../follicles_data_analysis.csv", "r") as file:
-    cf = csv.reader(file)
-    header = next(cf)
-    for line in cf:
-        if not line or not line[0]:
-            break
-        anafols.append(AnalysisFollicle(line))
-
-for afol in anafols:
-    chart_path = "../charts/volume/" + afol.label + ".csv"
-    print(chart_path)
-    volumes = []
-    with open(chart_path, "r") as file:
-        cf = csv.reader(file)
-        header = next(cf)
-        for line in cf:
-            if not line or not line[0]:
-                break
-            volumes.append(float(line[1]))
-    afol.set_volumes(volumes)
-
-    chart_path = "../charts/local_protrusion_index/" + afol.label + ".csv"
-    print(chart_path)
-    patch_volume_ratios = []
-    with open(chart_path, "r") as file:
-        cf = csv.reader(file)
-        header = next(cf)
-        for line in cf:
-            if not line or not line[0]:
-                break
-            patch_volume_ratios.append(float(line[4]))
-    afol.set_patch_volume_ratios(patch_volume_ratios)
-
 
 times = {}
-for f in anafols:
-    times[f.label] = (f.t_open//2, max(f.t_release0 - round(40 / f.delta_t), 0))
+for f in ANAFOLS:
+    t0 = max(0, f.t_open - round(25 / f.delta_t))
+    t1 = math.ceil((f.t_open + f.t_release0) / 2)
+    times[f.label] = (t0, t1)
 print([t for label, t in sorted(times.items())])
-assert 0
+for label, t in times.items():
+    print(label, "\t:", t[0], "and", t[1])
 
 
 from scipy import stats
-pvr0s = [f.pvr0().mean() for f in anafols if f.has_open]
-pvr1s = [f.pvr1().mean() for f in anafols]
+pvr0s = [f.pvr0().mean() for f in ANAFOLS if f.has_open]
+pvr1s = [f.pvr1().mean() for f in ANAFOLS]
 t_results = stats.ttest_ind(pvr1s, pvr0s,
                             equal_var=False,
                             alternative="two-sided")
@@ -132,13 +31,13 @@ print("Unpaired Welsh's T-test:")
 print("Low mean:", np.mean(pvr0s))
 print("High mean:", np.mean(pvr1s))
 print(t_results)
-# t = ?
-# p-value = ? (2.45%)
-# DoF = ?
+# t = 0.47
+# p-value = 65%
+# DoF = 14-15
 
 
 fig, axes = plt.subplots(3, 3)
-for ax, afol in zip(axes.flat, anafols):
+for ax, afol in zip(axes.flat, ANAFOLS):
     t_release0 = afol.delta_t * (afol.t_release0 - afol.t_open)
     t_release1 = afol.delta_t * (afol.t_release1 - afol.t_open)
     t_deflate = afol.delta_t * (afol.t_deflate - afol.t_open)
@@ -163,7 +62,7 @@ plt.show()
 
 fig, axes = plt.subplots(3, 3)
 yrange = [0.8, 1.4]
-for ax, afol in zip(axes.flat, anafols):
+for ax, afol in zip(axes.flat, ANAFOLS):
     t_release0 = afol.delta_t * (afol.t_release0 - afol.t_open)
     t_release1 = afol.delta_t * (afol.t_release1 - afol.t_open)
     t_deflate = afol.delta_t * (afol.t_deflate - afol.t_open)
@@ -171,6 +70,8 @@ for ax, afol in zip(axes.flat, anafols):
     v_max = afol.pvr.max()
     ax.plot(afol.t, afol.pvr)
     ax.axvline(t_deflate, color="k")
+    ax.axhline(1.1, color="g", ls="--")
+    ax.axhline(1.2, color="r", ls="--")
     ax.fill_between(afol.t, v_max, v_min,
                     where=(t_release0 <= afol.t) & (afol.t <= t_release1),
                     facecolor="k", alpha=.3)
@@ -186,14 +87,14 @@ plt.savefig("../charts/LPI over time separate.png",
 plt.show()
 
 
-anafols.sort(key=lambda f: f.ordinal)
+ANAFOLS.sort(key=lambda f: f.ordinal)
 
-labels0 = [f.paper_label for f in anafols if f.has_open]
-labels1 = [f.paper_label for f in anafols if f.has_open]
-pvr0s = [f.pvr0().mean() for f in anafols if f.has_open]
-pvr1s = [f.pvr1().mean() for f in anafols if f.has_open]
-pvr0errs = [f.pvr0().std() for f in anafols if f.has_open]
-pvr1errs = [f.pvr1().std() for f in anafols if f.has_open]
+labels0 = [f.paper_label for f in ANAFOLS if f.has_open]
+labels1 = [f.paper_label for f in ANAFOLS if f.has_open]
+pvr0s = [f.pvr0().mean() for f in ANAFOLS if f.has_open]
+pvr1s = [f.pvr1().mean() for f in ANAFOLS if f.has_open]
+pvr0errs = [f.pvr0().std() for f in ANAFOLS if f.has_open]
+pvr1errs = [f.pvr1().std() for f in ANAFOLS if f.has_open]
 w = 0.3
 plt.bar(labels0, pvr0s, yerr=pvr0errs, align="edge", width=-w)
 plt.bar(labels1, pvr1s, yerr=pvr1errs, align="edge", width=w)
@@ -201,6 +102,6 @@ plt.bar(labels1, pvr1s, yerr=pvr1errs, align="edge", width=w)
 plt.ylabel("Local Protrusion Index")
 plt.ylim([0.8, 1.4])
 plt.grid(True)
-plt.savefig("../charts/change in mean LPI Kohei markers.png",
+plt.savefig("../charts/change in mean LPI.png",
             dpi=DPI, bbox_inches="tight")
 plt.show()

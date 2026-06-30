@@ -1,5 +1,3 @@
-import csv
-import math
 import os
 import subprocess
 
@@ -7,81 +5,12 @@ import numpy as np
 from matplotlib import rcParams, pyplot as plt
 from matplotlib.patches import Rectangle
 
-from oocyte_datasets import *
-
-
-class AnalysisFollicle:
-    def __init__(self, line):
-        (ordinal, mouse_num, fol_num, scan_id, oocyte_id, name,
-         delta_t, t_cross, t_open, t_release0, t_release1,
-         before_deflate, t_deflate, t_v94, t_v92) = line[:15]
-        self.ordinal = int(ordinal)  # Kohei's preferred figure ordering
-        self.mouse_num = int(mouse_num)
-        self.fol_num = int(fol_num) if fol_num else 0
-        self.paper_label = "#" + mouse_num
-        if fol_num:
-            self.paper_label += "-" + fol_num
-        self.label = name + "_" + oocyte_id
-        self.delta_t = float(delta_t)
-        self.nt = int(t_cross) + 1
-        self.t_open = int(t_open) if t_open else 0
-        self.t_release0 = int(t_release0)
-        self.t_release1 = int(t_release1)
-        self.has_open = before_deflate.upper() == "TRUE"
-        self.t_deflate = int(t_deflate) + 1
-        self.t_v94 = int(t_v94)
-        self.t_v92 = int(t_v92)  # Time at which 92% of original volume is reached
-        self.volumes = None
-        self.pvr = None
-        
-        self.t = self.delta_t * (np.arange(self.nt) - self.t_open)
-
-    def set_volumes(self, volumes):
-        self.volumes = np.array(volumes)
-        assert self.volumes.shape[0] == self.nt
-
-    def set_patch_volume_ratios(self, pvr):
-        self.pvr = np.array(pvr)
+from analysis_dataset import *
 
 
 rcParams["font.family"] = ["Arial"]
 rcParams["font.size"] = 12.0  # Default = 10.0
 WIDTH, HEIGHT, DPI = 1920, 1080, 240  # = 8x4.5"
-
-anafols = []
-with open("../follicles_data_analysis.csv", "r") as file:
-    cf = csv.reader(file)
-    header = next(cf)
-    for line in cf:
-        if not line or not line[0]:
-            break
-        anafols.append(AnalysisFollicle(line))
-
-for afol in anafols:
-    chart_path = "../charts/volume/" + afol.label + ".csv"
-    print(chart_path)
-    volumes = []
-    with open(chart_path, "r") as file:
-        cf = csv.reader(file)
-        header = next(cf)
-        for line in cf:
-            if not line or not line[0]:
-                break
-            volumes.append(float(line[1]))
-    afol.set_volumes(volumes)
-
-    chart_path = "../charts/local_protrusion_index/" + afol.label + ".csv"
-    print(chart_path)
-    patch_volume_ratios = []
-    with open(chart_path, "r") as file:
-        cf = csv.reader(file)
-        header = next(cf)
-        for line in cf:
-            if not line or not line[0]:
-                break
-            patch_volume_ratios.append(float(line[4]))
-    afol.set_patch_volume_ratios(patch_volume_ratios)
-
 
 
 def render_frame(dir_path, it, fol):
@@ -291,7 +220,7 @@ for fol in anafols:
         "ffmpeg",
         "-i", video_path,  # Input video
         
-        "-framerate", "4",   # Match your PNG sequence frame rate
+        "-framerate", "4",   # Match the video frame rate
         "-start_number", "0",
         "-i", png_sequence,  # PNG sequence
 
